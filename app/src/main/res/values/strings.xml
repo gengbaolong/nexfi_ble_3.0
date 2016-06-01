@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">NexFi</string>
+    <item type="id" name="tag_left"></item>
+    <item type="id" name="tag_right"></item>
+</resources>
