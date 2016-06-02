@@ -49,6 +49,7 @@ import com.nexfi.yuanpeigen.nexfi_android_ble.dao.BleDBDao;
 import com.nexfi.yuanpeigen.nexfi_android_ble.listener.ReceiveTextMsgListener;
 import com.nexfi.yuanpeigen.nexfi_android_ble.model.Node;
 import com.nexfi.yuanpeigen.nexfi_android_ble.operation.TextMsgOperation;
+import com.nexfi.yuanpeigen.nexfi_android_ble.util.Debug;
 import com.nexfi.yuanpeigen.nexfi_android_ble.util.FileTransferUtils;
 import com.nexfi.yuanpeigen.nexfi_android_ble.util.FileUtils;
 import com.nexfi.yuanpeigen.nexfi_android_ble.util.MediaManager;
@@ -271,15 +272,22 @@ public class ChatActivity extends AppCompatActivity implements View.OnClickListe
         recordButton.setAudioFinishRecorderListener(new AudioRecordButton.AudioFinishRecorderListener() {
             @Override
             public void onFinished(float seconds, String filePath) {
+                Debug.debugLog("voice","finish================================");
                 SingleChatMessage singleChatMessage = new SingleChatMessage();
                 singleChatMessage.messageType = MessageType.eMessageType_SingleChat;
                 singleChatMessage.messageBodyType = MessageBodyType.eMessageBodyType_Voice;
+
+                UserMessage user = bleDBDao.findUserByUserId(userSelfId);
+                singleChatMessage.userMessage = user;
+
                 VoiceMessage voiceMessage = new VoiceMessage();
                 voiceMessage.durational = seconds + "";
                 File file = new File(filePath);
-                String voiceData = new String(FileTransferUtils.getBytesFromFile(file));
+                byte[] voice_send= FileTransferUtils.getBytesFromFile(file);
+                String voiceData=Base64.encodeToString(voice_send, Base64.DEFAULT);
                 voiceMessage.fileData = voiceData;
                 singleChatMessage.voiceMessage = voiceMessage;
+
                 mDataArrays.add(singleChatMessage);
                 setAdapter(singleChatMessage);
                 lv_chatPrivate.setSelection(mDataArrays.size() - 1);
@@ -563,7 +571,6 @@ public class ChatActivity extends AppCompatActivity implements View.OnClickListe
      */
     private void sendImageMsg(String filePath) {
         File fileToSend = FileTransferUtils.scal(filePath);
-//        File fileToSend = new File(filePath);
         byte[] send_file_size = ("" + fileToSend.length()).getBytes();
         String fileSize = Base64.encodeToString(send_file_size, Base64.DEFAULT);//文件长度
         byte[] bys_send_data = null;

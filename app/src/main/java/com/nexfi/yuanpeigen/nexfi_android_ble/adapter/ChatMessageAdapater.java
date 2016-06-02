@@ -27,6 +27,7 @@ import com.nexfi.yuanpeigen.nexfi_android_ble.bean.MessageBodyType;
 import com.nexfi.yuanpeigen.nexfi_android_ble.bean.SingleChatMessage;
 import com.nexfi.yuanpeigen.nexfi_android_ble.bean.TextMessage;
 import com.nexfi.yuanpeigen.nexfi_android_ble.bean.VoiceMessage;
+import com.nexfi.yuanpeigen.nexfi_android_ble.util.Debug;
 import com.nexfi.yuanpeigen.nexfi_android_ble.util.FileTransferUtils;
 
 import java.util.List;
@@ -159,13 +160,15 @@ public class ChatMessageAdapater extends BaseAdapter {
 
                 case MessageBodyType.eMessageBodyType_Voice:
                     if (entity.userMessage.userId.equals(userSelfId)) {
-                        convertView = View.inflate(mContext, R.layout.item_send_voice, null);
+                        convertView = mInflater.inflate(R.layout.item_send_voice, null);
                     } else {
                         convertView = mInflater.inflate(R.layout.item_receice_voice, null);
                     }
                     viewHolder_voice.length = convertView.findViewById(R.id.recorder_length);
                     viewHolder_voice.seconds = (TextView) convertView.findViewById(R.id.recorder_time);
+                    convertView.setTag(viewHolder_voice);
                     break;
+
                 case MessageBodyType.eMessageBodyType_Image:
                     if (entity.userMessage.userId.equals(userSelfId)) {//自己是发送(右)，别人是接收(左)
                         convertView = mInflater.inflate(R.layout.item_send_imge, null);
@@ -220,6 +223,8 @@ public class ChatMessageAdapater extends BaseAdapter {
                 break;
 
             case MessageBodyType.eMessageBodyType_Voice:
+                final byte[] bys_voice_send = Base64.decode(voiceMsg.fileData, Base64.DEFAULT);
+                Debug.debugLog("debug",viewHolder_voice+"--------------------4545454545454545-------");
                 viewHolder_voice.seconds.setText(Math.round(Double.parseDouble(voiceMsg.durational)) + "\"");
                 ViewGroup.LayoutParams lParams = viewHolder_voice.length.getLayoutParams();
                 lParams.width = (int) (mMinItemWith + mMaxItemWith / 60f * Double.parseDouble(voiceMsg.durational));
