@@ -27,8 +27,7 @@ buildscript {
     }
     dependencies {
         classpath 'com.github.dcendents:android-maven-gradle-plugin:1.3'
-
-        //classpath "com.jfrog.bintray.gradle:gradle-bintray-plugin:1.5"
+        classpath "com.jfrog.bintray.gradle:gradle-bintray-plugin:1.5"
     }
 }
 
@@ -190,7 +189,9 @@ bintrayUpload.dependsOn install
 
 project.afterEvaluate {
     bintray.publications.each { pub ->
-        bintrayUpload.inputs.files { -> project.publishing.publications.getByName(pub).publishableFiles }
+        bintrayUpload.inputs.files { ->
+            project.publishing.publications.getByName(pub).publishableFiles
+        }
     }
 }
 

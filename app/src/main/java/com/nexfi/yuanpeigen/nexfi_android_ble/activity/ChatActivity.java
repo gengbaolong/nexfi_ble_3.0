@@ -3,6 +3,7 @@ package com.nexfi.yuanpeigen.nexfi_android_ble.activity;
 import android.Manifest;
 import android.annotation.TargetApi;
 import android.content.ActivityNotFoundException;
+import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.database.ContentObserver;
@@ -15,9 +16,13 @@ import android.os.Handler;
 import android.provider.MediaStore;
 import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
+import android.text.Editable;
+import android.text.TextUtils;
+import android.text.TextWatcher;
 import android.util.Base64;
 import android.view.LayoutInflater;
 import android.view.View;
+import android.view.inputmethod.InputMethodManager;
 import android.widget.AbsListView;
 import android.widget.AbsListView.OnScrollListener;
 import android.widget.Button;
@@ -39,16 +44,19 @@ import com.nexfi.yuanpeigen.nexfi_android_ble.bean.MessageType;
 import com.nexfi.yuanpeigen.nexfi_android_ble.bean.SingleChatMessage;
 import com.nexfi.yuanpeigen.nexfi_android_ble.bean.TextMessage;
 import com.nexfi.yuanpeigen.nexfi_android_ble.bean.UserMessage;
+import com.nexfi.yuanpeigen.nexfi_android_ble.bean.VoiceMessage;
 import com.nexfi.yuanpeigen.nexfi_android_ble.dao.BleDBDao;
 import com.nexfi.yuanpeigen.nexfi_android_ble.listener.ReceiveTextMsgListener;
 import com.nexfi.yuanpeigen.nexfi_android_ble.model.Node;
 import com.nexfi.yuanpeigen.nexfi_android_ble.operation.TextMsgOperation;
 import com.nexfi.yuanpeigen.nexfi_android_ble.util.FileTransferUtils;
 import com.nexfi.yuanpeigen.nexfi_android_ble.util.FileUtils;
+import com.nexfi.yuanpeigen.nexfi_android_ble.util.MediaManager;
 import com.nexfi.yuanpeigen.nexfi_android_ble.util.SharedPreferencesUtils;
 import com.nexfi.yuanpeigen.nexfi_android_ble.util.TUtils;
 import com.nexfi.yuanpeigen.nexfi_android_ble.util.TimeUtils;
 import com.nexfi.yuanpeigen.nexfi_android_ble.util.UserInfo;
+import com.nexfi.yuanpeigen.nexfi_android_ble.view.AudioRecordButton;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -67,14 +75,13 @@ import io.underdark.transport.Link;
 public class ChatActivity extends AppCompatActivity implements View.OnClickListener, ReceiveTextMsgListener, Runnable {
 
     private RelativeLayout layout_backPrivate;
-    private ImageView iv_addPrivate, iv_camera, iv_position, iv_pic;
+    private ImageView iv_add_Private, iv_camera, iv_position, iv_pic, iv_editPrivate, iv_changePrivate;
     private EditText et_chatPrivate;
     private Button btn_sendMsgPrivate;
     private LinearLayout layout_view;
+    private AudioRecordButton recordButton;
     private ListView lv_chatPrivate;
     private TextView textView_private;
-
-    private boolean visibility_Flag = false;
 
     private final String USER_SEX = "1";
     private final String USER_AGE = "userAge";
@@ -87,6 +94,8 @@ public class ChatActivity extends AppCompatActivity implements View.OnClickListe
     private String userNick, userGender;
     private int userAge;
     private String userAvatar;
+
+    private boolean visibility_Flag_add = false, visibility_Flag_edit = false;
 
     private String nodeId;
     private Node node;
@@ -113,7 +122,6 @@ public class ChatActivity extends AppCompatActivity implements View.OnClickListe
     private String localTempImgFileName;
 
 
-
     /**
      * 每页加载20条数据
      */
@@ -124,7 +132,7 @@ public class ChatActivity extends AppCompatActivity implements View.OnClickListe
     private int startIndex = 0;
     private int mCount;
     private int currentPage = 1; //默认在第一页
-    private int totalPageCount=1;
+    private int totalPageCount = 1;
     private int lvIndex;
 
 
@@ -147,6 +155,24 @@ public class ChatActivity extends AppCompatActivity implements View.OnClickListe
 
     }
 
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        MediaManager.pause();
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        MediaManager.resume();
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        MediaManager.release();
+    }
 
     private class Myobserve extends ContentObserver {
         public Myobserve(Handler handler) {
@@ -178,7 +204,7 @@ public class ChatActivity extends AppCompatActivity implements View.OnClickListe
     private void initAdapter() {
         mCount = bleDBDao.getCount(userId);
         //计算总页数
-        totalPageCount = (mCount + pageSize -1) / pageSize;
+        totalPageCount = (mCount + pageSize - 1) / pageSize;
 
         // 判断是否是第一次加载数据
         if (mDataArrays != null && mDataArrays.size() == 0) {
@@ -188,7 +214,7 @@ public class ChatActivity extends AppCompatActivity implements View.OnClickListe
         }
 
 
-        if(mDataArrays!=null && mDataArrays.size()>0) {
+        if (mDataArrays != null && mDataArrays.size() > 0) {
 
             chatMessageAdapater = new ChatMessageAdapater(ChatActivity.this, mDataArrays, userSelfId);
             lv_chatPrivate.setAdapter(chatMessageAdapater);
@@ -200,7 +226,7 @@ public class ChatActivity extends AppCompatActivity implements View.OnClickListe
     }
 
 
-    private void appendData(){
+    private void appendData() {
         mDataArrays.addAll(0, bleDBDao.findPartMsgByChatId(userId, pageSize, startIndex));
         chatMessageAdapater = new ChatMessageAdapater(ChatActivity.this, mDataArrays, userSelfId);
         lv_chatPrivate.setAdapter(chatMessageAdapater);
@@ -210,23 +236,67 @@ public class ChatActivity extends AppCompatActivity implements View.OnClickListe
 
     private void setClicklistener() {
         layout_backPrivate.setOnClickListener(this);
-        iv_addPrivate.setOnClickListener(this);
+        iv_add_Private.setOnClickListener(this);
         btn_sendMsgPrivate.setOnClickListener(this);
+        iv_changePrivate.setOnClickListener(this);
+        iv_editPrivate.setOnClickListener(this);
         iv_pic.setOnClickListener(this);
         iv_position.setOnClickListener(this);
         iv_camera.setOnClickListener(this);
+
         if (node != null) {
             node.setReceiveTextMsgListener(this);
         }
+
+        et_chatPrivate.addTextChangedListener(new TextWatcher() {
+            @Override
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {
+            }
+
+            @Override
+            public void onTextChanged(CharSequence s, int start, int before, int count) {
+                if (TextUtils.isEmpty(et_chatPrivate.getText())) {
+                    btn_sendMsgPrivate.setVisibility(View.INVISIBLE);
+                    iv_add_Private.setVisibility(View.VISIBLE);
+                } else {
+                    btn_sendMsgPrivate.setVisibility(View.VISIBLE);
+                    iv_add_Private.setVisibility(View.INVISIBLE);
+                }
+            }
+
+            @Override
+            public void afterTextChanged(Editable s) {
+            }
+        });
+        recordButton.setAudioFinishRecorderListener(new AudioRecordButton.AudioFinishRecorderListener() {
+            @Override
+            public void onFinished(float seconds, String filePath) {
+                SingleChatMessage singleChatMessage = new SingleChatMessage();
+                singleChatMessage.messageType = MessageType.eMessageType_SingleChat;
+                singleChatMessage.messageBodyType = MessageBodyType.eMessageBodyType_Voice;
+                VoiceMessage voiceMessage = new VoiceMessage();
+                voiceMessage.durational = seconds + "";
+                File file = new File(filePath);
+                String voiceData = new String(FileTransferUtils.getBytesFromFile(file));
+                voiceMessage.fileData = voiceData;
+                singleChatMessage.voiceMessage = voiceMessage;
+                mDataArrays.add(singleChatMessage);
+                setAdapter(singleChatMessage);
+                lv_chatPrivate.setSelection(mDataArrays.size() - 1);
+            }
+        });
     }
 
-    int firstItem=-1;
+    int firstItem = -1;
 
     private void initView() {
         layout_backPrivate = (RelativeLayout) findViewById(R.id.layout_backPrivate);
-        iv_addPrivate = (ImageView) findViewById(R.id.iv_addPrivate);
+        iv_add_Private = (ImageView) findViewById(R.id.iv_add_Private);
+        iv_editPrivate = (ImageView) findViewById(R.id.iv_editPrivate);
+        iv_changePrivate = (ImageView) findViewById(R.id.iv_changePrivate);
         et_chatPrivate = (EditText) findViewById(R.id.et_chatPrivate);
         btn_sendMsgPrivate = (Button) findViewById(R.id.btn_sendMsgPrivate);
+        recordButton = (AudioRecordButton) findViewById(R.id.recordButton);
         iv_pic = (ImageView) findViewById(R.id.iv_pic);
         iv_camera = (ImageView) findViewById(R.id.iv_camera);
         iv_position = (ImageView) findViewById(R.id.iv_position);
@@ -242,14 +312,14 @@ public class ChatActivity extends AppCompatActivity implements View.OnClickListe
                 switch (scrollState) {
                     // 闲置状态(停止的时候调用)
                     case OnScrollListener.SCROLL_STATE_IDLE:
-                        if(firstItem==0 && scrollState == OnScrollListener.SCROLL_STATE_IDLE){//不再滚动
-                            startIndex =mDataArrays.size() ;
+                        if (firstItem == 0 && scrollState == OnScrollListener.SCROLL_STATE_IDLE) {//不再滚动
+                            startIndex = mDataArrays.size();
                             if (startIndex >= mCount) {
 //                                Toast.makeText(ChatActivity.this, "没有更多数据", Toast.LENGTH_SHORT).show();
                                 return;
                             }
                             // 追加后面20条数据
-                            List<SingleChatMessage> mLists=bleDBDao.findPartMsgByChatId(userId, pageSize, startIndex);
+                            List<SingleChatMessage> mLists = bleDBDao.findPartMsgByChatId(userId, pageSize, startIndex);
                             Collections.reverse(mLists);
                             mDataArrays.addAll(0, mLists);
                             chatMessageAdapater = new ChatMessageAdapater(ChatActivity.this, mDataArrays, userSelfId);
@@ -270,7 +340,7 @@ public class ChatActivity extends AppCompatActivity implements View.OnClickListe
 
             @Override
             public void onScroll(AbsListView view, int firstVisibleItem, int visibleItemCount, int totalItemCount) {
-                firstItem=firstVisibleItem;
+                firstItem = firstVisibleItem;
             }
         });
 
@@ -294,15 +364,39 @@ public class ChatActivity extends AppCompatActivity implements View.OnClickListe
             case R.id.layout_backPrivate:
                 finish();
                 break;
-            case R.id.iv_addPrivate:
-                if (visibility_Flag) {
+            case R.id.iv_add_Private:
+                closeKeybord(et_chatPrivate, this);
+                if (visibility_Flag_add) {
                     layout_view.setVisibility(View.GONE);
-                    visibility_Flag = false;
+                    visibility_Flag_add = false;
                 } else {
                     layout_view.setVisibility(View.VISIBLE);
-                    visibility_Flag = true;
+                    visibility_Flag_add = true;
                 }
                 break;
+
+            case R.id.iv_editPrivate:
+                if (visibility_Flag_edit) {
+                    openKeybord(et_chatPrivate, this);
+                    iv_changePrivate.setVisibility(View.VISIBLE);
+                    recordButton.setVisibility(View.INVISIBLE);
+                    iv_editPrivate.setVisibility(View.INVISIBLE);
+                    et_chatPrivate.setVisibility(View.VISIBLE);
+                    visibility_Flag_edit = false;
+                }
+                break;
+
+            case R.id.iv_changePrivate:
+                if (!visibility_Flag_edit) {
+                    closeKeybord(et_chatPrivate, this);
+                    iv_changePrivate.setVisibility(View.INVISIBLE);
+                    recordButton.setVisibility(View.VISIBLE);
+                    iv_editPrivate.setVisibility(View.VISIBLE);
+                    et_chatPrivate.setVisibility(View.INVISIBLE);
+                    visibility_Flag_edit = true;
+                }
+                break;
+
             case R.id.btn_sendMsgPrivate:
                 link = node.getLink(nodeId);
                 if (link != null) {
@@ -328,18 +422,16 @@ public class ChatActivity extends AppCompatActivity implements View.OnClickListe
             case R.id.iv_camera:
                 if (Build.VERSION.SDK_INT >= 23) {
 
-                    if(!(checkSelfPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED)){
+                    if (!(checkSelfPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED)) {
                         requestStoragePermission();
                     }
-
 
                     if (!(checkSelfPermission(Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED)) {
                         requestCameraPermission();
                     }
-                }else{
+                } else {
                     cameraToSend();
                 }
-
                 break;
             case R.id.iv_position:
                 showToast();
@@ -347,10 +439,24 @@ public class ChatActivity extends AppCompatActivity implements View.OnClickListe
         }
     }
 
+    public void closeKeybord(EditText mEditText, Context mContext) {
+        InputMethodManager imm = (InputMethodManager) mContext.getSystemService(Context.INPUT_METHOD_SERVICE);
+        imm.hideSoftInputFromWindow(mEditText.getWindowToken(), 0);
+    }
+
+
+    public void openKeybord(EditText mEditText, Context mContext) {
+        InputMethodManager imm = (InputMethodManager) mContext
+                .getSystemService(Context.INPUT_METHOD_SERVICE);
+        imm.showSoftInput(mEditText, InputMethodManager.RESULT_SHOWN);
+        imm.toggleSoftInput(InputMethodManager.SHOW_FORCED,
+                InputMethodManager.HIDE_IMPLICIT_ONLY);
+    }
+
 
     private static final int REQUEST_PERMISSION_CAMERA_CODE = 1;
 
-    private static final int WRITE_EXTERNAL_STORAGE_REQUEST_CODE=2;
+    private static final int WRITE_EXTERNAL_STORAGE_REQUEST_CODE = 2;
 
 
     @TargetApi(Build.VERSION_CODES.M)
@@ -359,7 +465,7 @@ public class ChatActivity extends AppCompatActivity implements View.OnClickListe
     }
 
     @TargetApi(Build.VERSION_CODES.M)
-    private void requestStoragePermission(){
+    private void requestStoragePermission() {
         requestPermissions(new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE}, WRITE_EXTERNAL_STORAGE_REQUEST_CODE);
     }
 
@@ -368,19 +474,18 @@ public class ChatActivity extends AppCompatActivity implements View.OnClickListe
     public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
 
-        if(requestCode == WRITE_EXTERNAL_STORAGE_REQUEST_CODE){
+        if (requestCode == WRITE_EXTERNAL_STORAGE_REQUEST_CODE) {
             int grantResult = grantResults[0];
-            if(grantResult == PackageManager.PERMISSION_GRANTED){//Permission Granted
+            if (grantResult == PackageManager.PERMISSION_GRANTED) {//Permission Granted
 
-            }else{// Permission Denied
+            } else {// Permission Denied
                 Toast.makeText(this, "内存卡Permission Denied", Toast.LENGTH_SHORT).show();
                 return;
             }
-        }
-        else if (requestCode == REQUEST_PERMISSION_CAMERA_CODE) {
+        } else if (requestCode == REQUEST_PERMISSION_CAMERA_CODE) {
             int grantResult = grantResults[0];
             boolean granted = grantResult == PackageManager.PERMISSION_GRANTED;
-            if(granted){
+            if (granted) {
                 cameraToSend();
             }
 

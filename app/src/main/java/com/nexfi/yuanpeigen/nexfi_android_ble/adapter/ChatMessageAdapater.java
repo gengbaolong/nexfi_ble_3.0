@@ -6,9 +6,11 @@ import android.content.Intent;
 import android.graphics.Bitmap;
 import android.os.Bundle;
 import android.util.Base64;
+import android.util.DisplayMetrics;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.WindowManager;
 import android.widget.BaseAdapter;
 import android.widget.ImageView;
 import android.widget.ProgressBar;
@@ -24,6 +26,7 @@ import com.nexfi.yuanpeigen.nexfi_android_ble.bean.FileMessage;
 import com.nexfi.yuanpeigen.nexfi_android_ble.bean.MessageBodyType;
 import com.nexfi.yuanpeigen.nexfi_android_ble.bean.SingleChatMessage;
 import com.nexfi.yuanpeigen.nexfi_android_ble.bean.TextMessage;
+import com.nexfi.yuanpeigen.nexfi_android_ble.bean.VoiceMessage;
 import com.nexfi.yuanpeigen.nexfi_android_ble.util.FileTransferUtils;
 
 import java.util.List;
@@ -43,13 +46,25 @@ public class ChatMessageAdapater extends BaseAdapter {
     public final static int SEND_RIGHT = 21;
     public final static int IMAGE_LEFT = 22;
     public final static int IMAGE_RIGHT = 23;
+    public final static int VOICE_LEFT = 24;
+    public final static int VOICE_RIGHT = 25;
 
+    private int mMinItemWith;// 设置对话框的最大宽度和最小宽度
+    private int mMaxItemWith;
 
     public ChatMessageAdapater(Context context, List<SingleChatMessage> coll, String userSelfId) {
         this.coll = coll;
         mInflater = LayoutInflater.from(context);
         this.mContext = context;
         this.userSelfId = userSelfId;
+
+        // 获取系统宽度
+        WindowManager wManager = (WindowManager) context
+                .getSystemService(Context.WINDOW_SERVICE);
+        DisplayMetrics outMetrics = new DisplayMetrics();
+        wManager.getDefaultDisplay().getMetrics(outMetrics);
+        mMaxItemWith = (int) (outMetrics.widthPixels * 0.7f);
+        mMinItemWith = (int) (outMetrics.widthPixels * 0.15f);
     }
 
 
@@ -76,6 +91,12 @@ public class ChatMessageAdapater extends BaseAdapter {
                 } else {
                     return IMAGE_LEFT;
                 }
+            case MessageBodyType.eMessageBodyType_Voice:
+                if (entity.userMessage.userId.equals(userSelfId)) {
+                    return VOICE_RIGHT;
+                } else {
+                    return VOICE_LEFT;
+                }
         }
         return -1;
     }
@@ -101,6 +122,7 @@ public class ChatMessageAdapater extends BaseAdapter {
         int messageBodyType = entity.messageBodyType;
         TextMessage textMsg = null;
         FileMessage fileMsg = null;
+        VoiceMessage voiceMsg = null;
         switch (messageBodyType) {
             case MessageBodyType.eMessageBodyType_Text://文本消息
                 textMsg = entity.textMessage;
@@ -108,25 +130,23 @@ public class ChatMessageAdapater extends BaseAdapter {
             case MessageBodyType.eMessageBodyType_Image://图片
                 fileMsg = entity.fileMessage;
                 break;
+            case MessageBodyType.eMessageBodyType_Voice://语音消息
+                voiceMsg = entity.voiceMessage;
         }
 
 
         ViewHolder_chatSend viewHolder_chatSend = null;
-        ViewHolder_chatReceive viewHolder_chatReceive = null;
-        ViewHolder_sendFile viewHolder_sendFile = null;
-        ViewHolder_ReceiveFile viewHolder_receiveFile = null;
         ViewHolder_sendImage viewHolder_sendImage = null;
-        ViewHolder_ReceiveImage viewHolder_receiveImage = null;
-
+        ViewHolder_voice viewHolder_voice = null;
 
         if (convertView == null) {
             viewHolder_chatSend = new ViewHolder_chatSend();
             viewHolder_sendImage = new ViewHolder_sendImage();
+            viewHolder_voice = new ViewHolder_voice();
             switch (messageBodyType) {
                 case MessageBodyType.eMessageBodyType_Text:
                     if (entity.userMessage.userId.equals(userSelfId)) {//自己是发送(右)，别人是接收(左)
-//                        convertView = mInflater.inflate(R.layout.item_chatting_msg_send, null);
-                        convertView=View.inflate(mContext,R.layout.item_chatting_msg_send, null);
+                        convertView = mInflater.inflate(R.layout.item_chatting_msg_send, null);
                     } else {
                         convertView = mInflater.inflate(R.layout.item_chatting_msg_receive, null);
                     }
@@ -137,6 +157,15 @@ public class ChatMessageAdapater extends BaseAdapter {
                     convertView.setTag(viewHolder_chatSend);
                     break;
 
+                case MessageBodyType.eMessageBodyType_Voice:
+                    if (entity.userMessage.userId.equals(userSelfId)) {
+                        convertView = View.inflate(mContext, R.layout.item_send_voice, null);
+                    } else {
+                        convertView = mInflater.inflate(R.layout.item_receice_voice, null);
+                    }
+                    viewHolder_voice.length = convertView.findViewById(R.id.recorder_length);
+                    viewHolder_voice.seconds = (TextView) convertView.findViewById(R.id.recorder_time);
+                    break;
                 case MessageBodyType.eMessageBodyType_Image:
                     if (entity.userMessage.userId.equals(userSelfId)) {//自己是发送(右)，别人是接收(左)
                         convertView = mInflater.inflate(R.layout.item_send_imge, null);
@@ -160,6 +189,10 @@ public class ChatMessageAdapater extends BaseAdapter {
                 case MessageBodyType.eMessageBodyType_Image:
                     viewHolder_sendImage = (ViewHolder_sendImage) convertView.getTag();
                     break;
+                case MessageBodyType.eMessageBodyType_Voice:
+                    viewHolder_voice = (ViewHolder_voice) convertView.getTag();
+                    break;
+
             }
 
         }
@@ -184,8 +217,15 @@ public class ChatMessageAdapater extends BaseAdapter {
 
                 viewHolder_chatSend.tv_sendTime_send.setText(entity.timeStamp);
                 viewHolder_chatSend.tv_chatText_send.setText(textMsg.fileData);
-
                 break;
+
+            case MessageBodyType.eMessageBodyType_Voice:
+                viewHolder_voice.seconds.setText(Math.round(Double.parseDouble(voiceMsg.durational)) + "\"");
+                ViewGroup.LayoutParams lParams = viewHolder_voice.length.getLayoutParams();
+                lParams.width = (int) (mMinItemWith + mMaxItemWith / 60f * Double.parseDouble(voiceMsg.durational));
+                viewHolder_voice.length.setLayoutParams(lParams);
+                break;
+
             case MessageBodyType.eMessageBodyType_Image:
                 try {
                     final byte[] bys_send = Base64.decode(fileMsg.fileData, Base64.DEFAULT);
@@ -260,31 +300,11 @@ public class ChatMessageAdapater extends BaseAdapter {
         public ImageView iv_userhead_send_chat;
     }
 
-    static class ViewHolder_chatReceive {
-        public TextView tv_chatText_receive, tv_sendTime_receive;
-        public ImageView iv_userhead_receive_chat;
+    static class ViewHolder_voice {
+        TextView seconds;// 时间
+        View length;// 对话框长度
     }
 
-    static class ViewHolder_sendFile {
-        public TextView tv_sendTime_send_folder, tv_size_send, tv_file_name_send;
-        public ImageView iv_userhead_send_folder, iv_icon_send;
-        public RelativeLayout chatcontent_send;
-        public ProgressBar pb_send;
-    }
-
-    static class ViewHolder_ReceiveFile {
-        public TextView tv_sendTime_receive_folder, tv_size_receive, tv_file_name_receive;
-        public ImageView iv_userhead_receive_folder, iv_icon_receive;
-        public ProgressBar pb_receive;
-        public RelativeLayout chatcontent_receive;
-    }
-
-    static class ViewHolder_ReceiveImage {
-        public TextView tv_sendTime_receive_image;
-        public ImageView iv_userhead_receive_image, iv_icon_receive;
-        public ProgressBar pb_receive;
-        public RelativeLayout chatcontent_receive;
-    }
 
     static class ViewHolder_sendImage {
         public TextView tv_sendTime_send_image;
@@ -292,4 +312,6 @@ public class ChatMessageAdapater extends BaseAdapter {
         public RelativeLayout chatcontent_send;
         public ProgressBar pb_send;
     }
+
+
 }
