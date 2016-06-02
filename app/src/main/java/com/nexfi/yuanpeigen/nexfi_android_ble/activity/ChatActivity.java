@@ -49,7 +49,6 @@ import com.nexfi.yuanpeigen.nexfi_android_ble.dao.BleDBDao;
 import com.nexfi.yuanpeigen.nexfi_android_ble.listener.ReceiveTextMsgListener;
 import com.nexfi.yuanpeigen.nexfi_android_ble.model.Node;
 import com.nexfi.yuanpeigen.nexfi_android_ble.operation.TextMsgOperation;
-import com.nexfi.yuanpeigen.nexfi_android_ble.util.Debug;
 import com.nexfi.yuanpeigen.nexfi_android_ble.util.FileTransferUtils;
 import com.nexfi.yuanpeigen.nexfi_android_ble.util.FileUtils;
 import com.nexfi.yuanpeigen.nexfi_android_ble.util.MediaManager;
@@ -272,28 +271,38 @@ public class ChatActivity extends AppCompatActivity implements View.OnClickListe
         recordButton.setAudioFinishRecorderListener(new AudioRecordButton.AudioFinishRecorderListener() {
             @Override
             public void onFinished(float seconds, String filePath) {
-                Debug.debugLog("voice","finish================================");
-                SingleChatMessage singleChatMessage = new SingleChatMessage();
-                singleChatMessage.messageType = MessageType.eMessageType_SingleChat;
-                singleChatMessage.messageBodyType = MessageBodyType.eMessageBodyType_Voice;
 
-                UserMessage user = bleDBDao.findUserByUserId(userSelfId);
-                singleChatMessage.userMessage = user;
-
-                VoiceMessage voiceMessage = new VoiceMessage();
-                voiceMessage.durational = seconds + "";
-                File file = new File(filePath);
-                byte[] voice_send= FileTransferUtils.getBytesFromFile(file);
-                String voiceData=Base64.encodeToString(voice_send, Base64.DEFAULT);
-                voiceMessage.fileData = voiceData;
-                singleChatMessage.voiceMessage = voiceMessage;
-
-                mDataArrays.add(singleChatMessage);
-                setAdapter(singleChatMessage);
-                lv_chatPrivate.setSelection(mDataArrays.size() - 1);
+                sendVoiceMsg(seconds, filePath);
             }
         });
     }
+
+
+    /**
+     * 发送语音
+     * @param seconds
+     * @param filePath
+     */
+    private void sendVoiceMsg(float seconds, String filePath) {
+
+        SingleChatMessage singleChatMessage = new SingleChatMessage();
+        singleChatMessage.messageType = MessageType.eMessageType_SingleChat;
+        singleChatMessage.messageBodyType = MessageBodyType.eMessageBodyType_Voice;
+
+        UserMessage user = bleDBDao.findUserByUserId(userSelfId);
+        singleChatMessage.userMessage = user;
+
+        VoiceMessage voiceMessage = new VoiceMessage();
+        voiceMessage.durational = seconds + "";
+        File file = new File(filePath);
+        byte[] voice_send = FileTransferUtils.getBytesFromFile(file);
+        String voiceData = Base64.encodeToString(voice_send, Base64.DEFAULT);
+        voiceMessage.fileData = voiceData;
+        singleChatMessage.voiceMessage = voiceMessage;
+        bleDBDao.addP2PTextMsg(singleChatMessage);
+        setAdapter(singleChatMessage);
+    }
+
 
     int firstItem = -1;
 
@@ -323,7 +332,6 @@ public class ChatActivity extends AppCompatActivity implements View.OnClickListe
                         if (firstItem == 0 && scrollState == OnScrollListener.SCROLL_STATE_IDLE) {//不再滚动
                             startIndex = mDataArrays.size();
                             if (startIndex >= mCount) {
-//                                Toast.makeText(ChatActivity.this, "没有更多数据", Toast.LENGTH_SHORT).show();
                                 return;
                             }
                             // 追加后面20条数据
@@ -537,8 +545,6 @@ public class ChatActivity extends AppCompatActivity implements View.OnClickListe
     private void sendTextMsg() {
         String contString = et_chatPrivate.getText().toString();
         if (contString.length() > 0) {
-
-
             SingleChatMessage singleChatMessage = new SingleChatMessage();
             singleChatMessage.messageType = MessageType.eMessageType_SingleChat;
             singleChatMessage.messageBodyType = MessageBodyType.eMessageBodyType_Text;

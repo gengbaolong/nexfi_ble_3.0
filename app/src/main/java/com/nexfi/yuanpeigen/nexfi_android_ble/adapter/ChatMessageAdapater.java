@@ -223,8 +223,6 @@ public class ChatMessageAdapater extends BaseAdapter {
                 break;
 
             case MessageBodyType.eMessageBodyType_Voice:
-                final byte[] bys_voice_send = Base64.decode(voiceMsg.fileData, Base64.DEFAULT);
-                Debug.debugLog("debug",viewHolder_voice+"--------------------4545454545454545-------");
                 viewHolder_voice.seconds.setText(Math.round(Double.parseDouble(voiceMsg.durational)) + "\"");
                 ViewGroup.LayoutParams lParams = viewHolder_voice.length.getLayoutParams();
                 lParams.width = (int) (mMinItemWith + mMaxItemWith / 60f * Double.parseDouble(voiceMsg.durational));
