@@ -1,32 +1,25 @@
 package com.nexfi.yuanpeigen.nexfi_android_ble.model;
 
 import android.app.Activity;
-import android.os.Environment;
-import android.util.Base64;
 
 import com.google.gson.Gson;
 import com.nexfi.yuanpeigen.nexfi_android_ble.application.BleApplication;
 import com.nexfi.yuanpeigen.nexfi_android_ble.bean.BaseMessage;
-import com.nexfi.yuanpeigen.nexfi_android_ble.bean.FileMessage;
 import com.nexfi.yuanpeigen.nexfi_android_ble.bean.GroupChatMessage;
-import com.nexfi.yuanpeigen.nexfi_android_ble.bean.MessageBodyType;
 import com.nexfi.yuanpeigen.nexfi_android_ble.bean.MessageType;
 import com.nexfi.yuanpeigen.nexfi_android_ble.bean.SingleChatMessage;
-import com.nexfi.yuanpeigen.nexfi_android_ble.bean.TextMessage;
 import com.nexfi.yuanpeigen.nexfi_android_ble.bean.UserMessage;
 import com.nexfi.yuanpeigen.nexfi_android_ble.dao.BleDBDao;
 import com.nexfi.yuanpeigen.nexfi_android_ble.listener.ReceiveGroupMsgListener;
 import com.nexfi.yuanpeigen.nexfi_android_ble.listener.ReceiveTextMsgListener;
 import com.nexfi.yuanpeigen.nexfi_android_ble.operation.TextMsgOperation;
 import com.nexfi.yuanpeigen.nexfi_android_ble.util.Debug;
-import com.nexfi.yuanpeigen.nexfi_android_ble.util.FileTransferUtils;
 import com.nexfi.yuanpeigen.nexfi_android_ble.util.TimeUtils;
 import com.nexfi.yuanpeigen.nexfi_android_ble.util.UserInfo;
 
 import org.json.JSONObject;
 import org.slf4j.impl.StaticLoggerBinder;
 
-import java.io.File;
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.Random;
@@ -180,9 +173,6 @@ public class Node implements TransportListener {
         } catch (Exception e) {//
             e.printStackTrace();
         }
-//        catch (OutOfMemoryError error){
-//            //
-//        }
         if (jsonObject == null) {
             return;
         }
@@ -234,59 +224,27 @@ public class Node implements TransportListener {
         }
         else if (MessageType.eMessageType_SingleChat == messageType) {//单聊
             SingleChatMessage singleChatMessage = gson.fromJson(json, SingleChatMessage.class);
-            if (MessageBodyType.eMessageBodyType_Text == singleChatMessage.messageBodyType) {//文本消息
-                singleChatMessage.receiver = singleChatMessage.userMessage.userId;
-                bleDBDao.addP2PTextMsg(singleChatMessage);//geng
-                if (null != mReceiveTextMsgListener) {
-                    mReceiveTextMsgListener.onReceiveTextMsg(singleChatMessage);
-                }
-            } else if (MessageBodyType.eMessageBodyType_Image == singleChatMessage.messageBodyType) {//发送图片
-                FileMessage fileMessage = singleChatMessage.fileMessage;
-                singleChatMessage.receiver = singleChatMessage.userMessage.userId;
-                String file_name = fileMessage.fileName;//文件名
-                File fileDir = null;
-                if (Environment.getExternalStorageState().equals(Environment.MEDIA_MOUNTED)) {
-                    //存在sd卡
-                    fileDir = new File(Environment.getExternalStorageDirectory().getAbsolutePath() + "/NexFi_ble/image");
-                    if (!fileDir.exists()) {
-                        fileDir.mkdirs();
-                    }
-                }
-                String rece_file_path = fileDir + "/" + file_name;
-                byte[] bys_receive = Base64.decode(fileMessage.fileData, Base64.DEFAULT);//文件数据
-                File file = FileTransferUtils.getFileFromBytes(bys_receive, rece_file_path);
-                fileMessage.filePath = rece_file_path;
-                singleChatMessage.fileMessage = fileMessage;
-                bleDBDao.addP2PTextMsg(singleChatMessage);
-                if (null != mReceiveTextMsgListener) {
-                    mReceiveTextMsgListener.onReceiveTextMsg(singleChatMessage);
-                }
+//            if(singleChatMessage.messageBodyType== MessageBodyType.eMessageBodyType_Voice){
+//                String fileData=singleChatMessage.voiceMessage.fileData;
+//                byte[] by_receive_data=Base64.decode(fileData,Base64.DEFAULT);
+//
+//
+//            }
+            singleChatMessage.receiver = singleChatMessage.userMessage.userId;
+            bleDBDao.addP2PTextMsg(singleChatMessage);//geng
+            if (null != mReceiveTextMsgListener) {
+                mReceiveTextMsgListener.onReceiveTextMsg(singleChatMessage);
             }
-
         } else if (MessageType.eMessageType_AllUserChat == messageType) {
             GroupChatMessage groupChatMessage = gson.fromJson(json, GroupChatMessage.class);
-
-            if (MessageBodyType.eMessageBodyType_Text == groupChatMessage.messageBodyType) {//群聊文本
-                if (!(bleDBDao.findSameGroupByUuid(groupChatMessage.msgId))) {
-                    //如果数据库没有此uuid，则将此条消息转发,并显示
-                    TextMessage textMessage = groupChatMessage.textMessage;
-                    groupChatMessage.userMessage.nodeId = link.getNodeId() + "";
-                    bleDBDao.addGroupTextMsg2(groupChatMessage);
-                    UserMessage user = bleDBDao.findUserByUserId(userSelfId);
-                    if (null != mReceiveGroupMsgListener) {
-                        mReceiveGroupMsgListener.onReceiveGroupMsg(groupChatMessage);
-                    }
-                }
-            }else if(MessageBodyType.eMessageBodyType_Image==groupChatMessage.messageBodyType){//群聊图片
-                if (!(bleDBDao.findSameGroupByUuid(groupChatMessage.msgId))) {
-                    //如果数据库没有此msgId，则将此条消息转发,并显示
-                    UserMessage userMessage=groupChatMessage.userMessage;
-                    userMessage.nodeId=link.getNodeId()+"";
-                    bleDBDao.addGroupTextMsg2(groupChatMessage);
-                    UserMessage user = bleDBDao.findUserByUserId(userSelfId);
-                    if (null != mReceiveGroupMsgListener) {
-                        mReceiveGroupMsgListener.onReceiveGroupMsg(groupChatMessage);
-                    }
+            if (!(bleDBDao.findSameGroupByUuid(groupChatMessage.msgId))) {
+                //如果数据库没有此msgId，则将此条消息转发,并显示
+                UserMessage userMessage=groupChatMessage.userMessage;
+                userMessage.nodeId=link.getNodeId()+"";
+                bleDBDao.addGroupTextMsg2(groupChatMessage);
+                UserMessage user = bleDBDao.findUserByUserId(userSelfId);
+                if (null != mReceiveGroupMsgListener) {
+                    mReceiveGroupMsgListener.onReceiveGroupMsg(groupChatMessage);
                 }
             }
         }

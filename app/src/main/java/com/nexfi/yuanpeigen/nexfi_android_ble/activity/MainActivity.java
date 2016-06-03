@@ -1,5 +1,7 @@
 package com.nexfi.yuanpeigen.nexfi_android_ble.activity;
 
+import android.media.MediaDataSource;
+import android.media.MediaPlayer;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
@@ -46,7 +48,9 @@ public class MainActivity extends FragmentActivity implements RadioGroup.OnCheck
                 isExit = false;
             }
         };
-
+        MediaPlayer mPlayer=new MediaPlayer();
+//        FileDescriptor
+//        MediaDataSource
     }
 
 
