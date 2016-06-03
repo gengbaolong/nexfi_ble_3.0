@@ -7,7 +7,9 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.database.ContentObserver;
+import android.graphics.drawable.AnimationDrawable;
 import android.graphics.drawable.ColorDrawable;
+import android.media.MediaPlayer;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -25,6 +27,7 @@ import android.view.View;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.AbsListView;
 import android.widget.AbsListView.OnScrollListener;
+import android.widget.AdapterView;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageView;
@@ -135,6 +138,7 @@ public class ChatActivity extends AppCompatActivity implements View.OnClickListe
     private int totalPageCount = 1;
     private int lvIndex;
 
+    private View viewanim;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -247,6 +251,36 @@ public class ChatActivity extends AppCompatActivity implements View.OnClickListe
         if (node != null) {
             node.setReceiveTextMsgListener(this);
         }
+
+        lv_chatPrivate.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+            @Override
+            public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
+                if (mDataArrays.get(position).messageBodyType == MessageBodyType.eMessageBodyType_Voice) {
+                    // 播放动画
+                    if (viewanim != null) {//让第二个播放的时候第一个停止播放
+                        viewanim.setBackgroundResource(R.drawable.adj);
+                        viewanim = null;
+                    }
+                    viewanim = view.findViewById(R.id.id_recorder_anim);
+                    viewanim.setBackgroundResource(R.drawable.play);
+                    AnimationDrawable drawable = (AnimationDrawable) viewanim
+                            .getBackground();
+                    drawable.start();
+
+                    // 播放音频
+                    MediaManager.playSound(mDataArrays.get(position).voiceMessage.filePath,
+                            new MediaPlayer.OnCompletionListener() {
+
+                                @Override
+                                public void onCompletion(MediaPlayer mp) {
+                                    viewanim.setBackgroundResource(R.drawable.adj);
+
+                                }
+                            });
+                }
+            }
+        });
+
 
         et_chatPrivate.addTextChangedListener(new TextWatcher() {
             @Override
