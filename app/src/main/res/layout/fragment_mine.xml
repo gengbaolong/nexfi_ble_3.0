@@ -194,15 +194,6 @@
                 android:layout_height="0.3dp"
                 android:background="@color/textNormol" />
 
-            <Button
-                android:id="@+id/bt_debug"
-                android:layout_width="match_parent"
-                android:layout_height="45dp"
-                android:background="@null"
-                android:text="调试"
-                android:textColor="#000"
-                android:textSize="15sp"
-                android:visibility="invisible"/>
 
             <View
                 android:id="@+id/v2"
@@ -211,6 +202,16 @@
                 android:background="@color/textNormol" />
 
         </LinearLayout>
+
+
+        <Button
+            android:id="@+id/bt_debug"
+            android:layout_width="match_parent"
+            android:layout_height="45dp"
+            android:text="调试"
+            android:textSize="15sp"
+            android:textColor="#000"
+            android:visibility="invisible"/>
 
     </LinearLayout>
 

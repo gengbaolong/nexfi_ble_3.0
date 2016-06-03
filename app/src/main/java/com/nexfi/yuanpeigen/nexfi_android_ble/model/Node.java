@@ -1,11 +1,14 @@
 package com.nexfi.yuanpeigen.nexfi_android_ble.model;
 
 import android.app.Activity;
+import android.os.Environment;
+import android.util.Base64;
 
 import com.google.gson.Gson;
 import com.nexfi.yuanpeigen.nexfi_android_ble.application.BleApplication;
 import com.nexfi.yuanpeigen.nexfi_android_ble.bean.BaseMessage;
 import com.nexfi.yuanpeigen.nexfi_android_ble.bean.GroupChatMessage;
+import com.nexfi.yuanpeigen.nexfi_android_ble.bean.MessageBodyType;
 import com.nexfi.yuanpeigen.nexfi_android_ble.bean.MessageType;
 import com.nexfi.yuanpeigen.nexfi_android_ble.bean.SingleChatMessage;
 import com.nexfi.yuanpeigen.nexfi_android_ble.bean.UserMessage;
@@ -14,13 +17,17 @@ import com.nexfi.yuanpeigen.nexfi_android_ble.listener.ReceiveGroupMsgListener;
 import com.nexfi.yuanpeigen.nexfi_android_ble.listener.ReceiveTextMsgListener;
 import com.nexfi.yuanpeigen.nexfi_android_ble.operation.TextMsgOperation;
 import com.nexfi.yuanpeigen.nexfi_android_ble.util.Debug;
+import com.nexfi.yuanpeigen.nexfi_android_ble.util.FileTransferUtils;
 import com.nexfi.yuanpeigen.nexfi_android_ble.util.TimeUtils;
 import com.nexfi.yuanpeigen.nexfi_android_ble.util.UserInfo;
 
 import org.json.JSONObject;
 import org.slf4j.impl.StaticLoggerBinder;
 
+import java.io.File;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.EnumSet;
 import java.util.Random;
 
@@ -224,14 +231,28 @@ public class Node implements TransportListener {
         }
         else if (MessageType.eMessageType_SingleChat == messageType) {//单聊
             SingleChatMessage singleChatMessage = gson.fromJson(json, SingleChatMessage.class);
-//            if(singleChatMessage.messageBodyType== MessageBodyType.eMessageBodyType_Voice){
-//                String fileData=singleChatMessage.voiceMessage.fileData;
-//                byte[] by_receive_data=Base64.decode(fileData,Base64.DEFAULT);
-//
-//
-//            }
+            //如果是语音消息，需要创建临时文件，因为播放语音需要路径
+            if(singleChatMessage.messageBodyType== MessageBodyType.eMessageBodyType_Voice){
+                Debug.debugLog("receivevoice","-----======收到语音------------------");
+                String fileData=singleChatMessage.voiceMessage.fileData;
+                byte[] by_receive_data= Base64.decode(fileData, Base64.DEFAULT);
+                String timeStamp = new SimpleDateFormat("yyyyMMddHHmmss").format(new Date());
+                String videoFileName = "VIDEO_"+ timeStamp + "_";
+                File fileDir = null;
+                if (Environment.getExternalStorageState().equals(Environment.MEDIA_MOUNTED)) {
+                    //存在sd卡
+                    fileDir = new File(Environment.getExternalStorageDirectory().getAbsolutePath() + "/NexFi_ble/image");
+                    if (!fileDir.exists()) {
+                        fileDir.mkdirs();
+                    }
+                }
+                String rece_file_path = fileDir + "/" + videoFileName;
+                File fileRece=FileTransferUtils.getFileFromBytes(by_receive_data, rece_file_path);
+                singleChatMessage.voiceMessage.filePath=fileRece.getAbsolutePath();
+                Debug.debugLog("receivevoice","----收到语音路径------------------"+fileRece.getAbsolutePath());
+            }
             singleChatMessage.receiver = singleChatMessage.userMessage.userId;
-            bleDBDao.addP2PTextMsg(singleChatMessage);//geng
+//            bleDBDao.addP2PTextMsg(singleChatMessage);//geng
             if (null != mReceiveTextMsgListener) {
                 mReceiveTextMsgListener.onReceiveTextMsg(singleChatMessage);
             }

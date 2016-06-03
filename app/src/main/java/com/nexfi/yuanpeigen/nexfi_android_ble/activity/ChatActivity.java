@@ -52,6 +52,7 @@ import com.nexfi.yuanpeigen.nexfi_android_ble.dao.BleDBDao;
 import com.nexfi.yuanpeigen.nexfi_android_ble.listener.ReceiveTextMsgListener;
 import com.nexfi.yuanpeigen.nexfi_android_ble.model.Node;
 import com.nexfi.yuanpeigen.nexfi_android_ble.operation.TextMsgOperation;
+import com.nexfi.yuanpeigen.nexfi_android_ble.util.Debug;
 import com.nexfi.yuanpeigen.nexfi_android_ble.util.FileTransferUtils;
 import com.nexfi.yuanpeigen.nexfi_android_ble.util.FileUtils;
 import com.nexfi.yuanpeigen.nexfi_android_ble.util.MediaManager;
@@ -228,15 +229,7 @@ public class ChatActivity extends AppCompatActivity implements View.OnClickListe
             }
         }
     }
-
-
-    private void appendData() {
-        mDataArrays.addAll(0, bleDBDao.findPartMsgByChatId(userId, pageSize, startIndex));
-        chatMessageAdapater = new ChatMessageAdapater(ChatActivity.this, mDataArrays, userSelfId);
-        lv_chatPrivate.setAdapter(chatMessageAdapater);
-        chatMessageAdapater.notifyDataSetChanged();
-//        lv_chatPrivate.setSelection(mDataArrays.size() - 1);
-    }
+    
 
     private void setClicklistener() {
         layout_backPrivate.setOnClickListener(this);
@@ -249,6 +242,7 @@ public class ChatActivity extends AppCompatActivity implements View.OnClickListe
         iv_camera.setOnClickListener(this);
 
         if (node != null) {
+            link = node.getLink(nodeId);
             node.setReceiveTextMsgListener(this);
         }
 
@@ -256,27 +250,48 @@ public class ChatActivity extends AppCompatActivity implements View.OnClickListe
             @Override
             public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
                 if (mDataArrays.get(position).messageBodyType == MessageBodyType.eMessageBodyType_Voice) {
-                    // 播放动画
-                    if (viewanim != null) {//让第二个播放的时候第一个停止播放
-                        viewanim.setBackgroundResource(R.drawable.adj);
-                        viewanim = null;
+                    if (mDataArrays.get(position).userMessage.userId.equals(userSelfId)) {
+                        // 播放动画
+                        if (viewanim != null) {//让第二个播放的时候第一个停止播放
+                            viewanim.setBackgroundResource(R.drawable.adj_send);
+                            viewanim = null;
+                        }
+                        viewanim = view.findViewById(R.id.id_recorder_anim);
+                        viewanim.setBackgroundResource(R.drawable.play);
+                        AnimationDrawable drawable = (AnimationDrawable) viewanim
+                                .getBackground();
+                        drawable.start();
+
+                        // 播放音频
+                        MediaManager.playSound(mDataArrays.get(position).voiceMessage.filePath,
+                                new MediaPlayer.OnCompletionListener() {
+
+                                    @Override
+                                    public void onCompletion(MediaPlayer mp) {
+                                        viewanim.setBackgroundResource(R.drawable.adj_send);
+                                    }
+                                });
+                    } else {
+                        // 播放动画
+                        if (viewanim != null) {//让第二个播放的时候第一个停止播放
+                            viewanim.setBackgroundResource(R.drawable.adj_receive);
+                            viewanim = null;
+                        }
+                        viewanim = view.findViewById(R.id.id_recorder_anim);
+                        viewanim.setBackgroundResource(R.drawable.play_receive);
+                        AnimationDrawable drawable = (AnimationDrawable) viewanim
+                                .getBackground();
+                        drawable.start();
+
+                        // 播放音频
+                        MediaManager.playSound(mDataArrays.get(position).voiceMessage.filePath,
+                                new MediaPlayer.OnCompletionListener() {
+                                    @Override
+                                    public void onCompletion(MediaPlayer mp) {
+                                        viewanim.setBackgroundResource(R.drawable.adj_receive);
+                                    }
+                                });
                     }
-                    viewanim = view.findViewById(R.id.id_recorder_anim);
-                    viewanim.setBackgroundResource(R.drawable.play);
-                    AnimationDrawable drawable = (AnimationDrawable) viewanim
-                            .getBackground();
-                    drawable.start();
-
-                    // 播放音频
-                    MediaManager.playSound(mDataArrays.get(position).voiceMessage.filePath,
-                            new MediaPlayer.OnCompletionListener() {
-
-                                @Override
-                                public void onCompletion(MediaPlayer mp) {
-                                    viewanim.setBackgroundResource(R.drawable.adj);
-
-                                }
-                            });
                 }
             }
         });
@@ -335,8 +350,18 @@ public class ChatActivity extends AppCompatActivity implements View.OnClickListe
         voiceMessage.fileData = voiceData;
         voiceMessage.filePath = filePath;
         singleChatMessage.voiceMessage = voiceMessage;
-        bleDBDao.addP2PTextMsg(singleChatMessage);
         setAdapter(singleChatMessage);
+        Gson gson = new Gson();
+        String json = gson.toJson(singleChatMessage);
+        byte[] send_text_data = json.getBytes();
+        Debug.debugLog("sendvoice","--------语音已发送-1111111----");
+        if (null != link) {
+            link.sendFrame(send_text_data);
+            Debug.debugLog("sendvoice","--------语音已发送-----");
+//            bleDBDao.addP2PTextMsg(singleChatMessage);//geng
+//            setAdapter(singleChatMessage);
+        }
+
     }
 
 
@@ -676,13 +701,17 @@ public class ChatActivity extends AppCompatActivity implements View.OnClickListe
         SingleChatMessage singleChatMessage = (SingleChatMessage) obj;
         if (singleChatMessage.messageBodyType == MessageBodyType.eMessageBodyType_Text) {
             UserMessage userMessage = singleChatMessage.userMessage;
-            TextMessage textMessage = (TextMessage) singleChatMessage.textMessage;
             if (userMessage.userId.equals(userId)) {//只有两个人都在聊天界面的时候才显示出来：拿到聊天界面的用户的userId，跟接收到的消息的userId比较，看是否一致，一致了才显示消息
                 setAdapter(singleChatMessage);//设置适配器
             }
         } else if (singleChatMessage.messageBodyType == MessageBodyType.eMessageBodyType_Image) {
             UserMessage userMsg = singleChatMessage.userMessage;
-            FileMessage fileMessage = singleChatMessage.fileMessage;
+            if (userMsg.userId.equals(userId)) {
+                setAdapter(singleChatMessage);//设置适配器
+            }
+        }
+        else if (singleChatMessage.messageBodyType == MessageBodyType.eMessageBodyType_Voice) {
+            UserMessage userMsg = singleChatMessage.userMessage;
             if (userMsg.userId.equals(userId)) {
                 setAdapter(singleChatMessage);//设置适配器
             }
