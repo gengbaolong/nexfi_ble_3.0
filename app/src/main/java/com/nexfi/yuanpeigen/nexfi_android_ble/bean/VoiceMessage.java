@@ -7,4 +7,5 @@ public class VoiceMessage {
     public String durational;//语音时间
     public String fileData;//语音数据
     public String isRead;//是否已读
+    public String filePath;
 }

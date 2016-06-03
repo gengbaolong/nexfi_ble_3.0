@@ -4,9 +4,12 @@ import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.Bitmap;
+import android.graphics.drawable.AnimationDrawable;
+import android.media.MediaPlayer;
 import android.os.Bundle;
 import android.util.Base64;
 import android.util.DisplayMetrics;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -27,8 +30,8 @@ import com.nexfi.yuanpeigen.nexfi_android_ble.bean.MessageBodyType;
 import com.nexfi.yuanpeigen.nexfi_android_ble.bean.SingleChatMessage;
 import com.nexfi.yuanpeigen.nexfi_android_ble.bean.TextMessage;
 import com.nexfi.yuanpeigen.nexfi_android_ble.bean.VoiceMessage;
-import com.nexfi.yuanpeigen.nexfi_android_ble.util.Debug;
 import com.nexfi.yuanpeigen.nexfi_android_ble.util.FileTransferUtils;
+import com.nexfi.yuanpeigen.nexfi_android_ble.util.MediaManager;
 
 import java.util.List;
 
@@ -50,8 +53,12 @@ public class ChatMessageAdapater extends BaseAdapter {
     public final static int VOICE_LEFT = 24;
     public final static int VOICE_RIGHT = 25;
 
+    private int voicePosition;
     private int mMinItemWith;// 设置对话框的最大宽度和最小宽度
     private int mMaxItemWith;
+
+    private ViewHolder_voice viewHolder_voice = null;
+    private VoiceMessage voiceMsg = null;
 
     public ChatMessageAdapater(Context context, List<SingleChatMessage> coll, String userSelfId) {
         this.coll = coll;
@@ -119,11 +126,10 @@ public class ChatMessageAdapater extends BaseAdapter {
 
     @Override
     public View getView(final int position, View convertView, ViewGroup parent) {
-        SingleChatMessage entity = coll.get(position);
+        final SingleChatMessage entity = coll.get(position);
         int messageBodyType = entity.messageBodyType;
         TextMessage textMsg = null;
         FileMessage fileMsg = null;
-        VoiceMessage voiceMsg = null;
         switch (messageBodyType) {
             case MessageBodyType.eMessageBodyType_Text://文本消息
                 textMsg = entity.textMessage;
@@ -138,7 +144,6 @@ public class ChatMessageAdapater extends BaseAdapter {
 
         ViewHolder_chatSend viewHolder_chatSend = null;
         ViewHolder_sendImage viewHolder_sendImage = null;
-        ViewHolder_voice viewHolder_voice = null;
 
         if (convertView == null) {
             viewHolder_chatSend = new ViewHolder_chatSend();
@@ -166,6 +171,7 @@ public class ChatMessageAdapater extends BaseAdapter {
                     }
                     viewHolder_voice.length = convertView.findViewById(R.id.recorder_length);
                     viewHolder_voice.seconds = (TextView) convertView.findViewById(R.id.recorder_time);
+                    viewHolder_voice.viewanim = convertView.findViewById(R.id.id_recorder_anim);
                     convertView.setTag(viewHolder_voice);
                     break;
 
@@ -227,6 +233,33 @@ public class ChatMessageAdapater extends BaseAdapter {
                 ViewGroup.LayoutParams lParams = viewHolder_voice.length.getLayoutParams();
                 lParams.width = (int) (mMinItemWith + mMaxItemWith / 60f * Double.parseDouble(voiceMsg.durational));
                 viewHolder_voice.length.setLayoutParams(lParams);
+                viewHolder_voice.viewanim.setOnClickListener(new View.OnClickListener() {
+                    @Override
+                    public void onClick(View v) {
+                        // 播放动画
+                        if (voicePosition != position) {//让第二个播放的时候第一个停止播放
+                            Log.e("position------if----", voicePosition + "---" + position);
+                            Log.e("position----------", voicePosition + "");
+                            Log.e("position----------", position + "");
+                            viewHolder_voice.viewanim.setBackgroundResource(R.drawable.play);
+                            AnimationDrawable drawable = (AnimationDrawable) viewHolder_voice.viewanim
+                                    .getBackground();
+                            drawable.start();
+                        } else {
+                            viewHolder_voice.viewanim.setBackgroundResource(R.drawable.adj);
+                            Log.e("position------else----", position + "");
+                        }
+                        voicePosition = position;
+                        // 播放音频
+                        MediaManager.playSound(coll.get(position).voiceMessage.filePath,
+                                new MediaPlayer.OnCompletionListener() {
+                                    @Override
+                                    public void onCompletion(MediaPlayer mp) {
+                                        viewHolder_voice.viewanim.setBackgroundResource(R.drawable.adj);
+                                    }
+                                });
+                    }
+                });
                 break;
 
             case MessageBodyType.eMessageBodyType_Image:
@@ -275,6 +308,7 @@ public class ChatMessageAdapater extends BaseAdapter {
                 }
                 break;
         }
+
         return convertView;
     }
 
@@ -304,8 +338,9 @@ public class ChatMessageAdapater extends BaseAdapter {
     }
 
     static class ViewHolder_voice {
-        TextView seconds;// 时间
-        View length;// 对话框长度
+        public TextView seconds;// 时间
+        public View length;// 对话框长度
+        public View viewanim;
     }
 
 

@@ -47,7 +47,7 @@ public class AudioRecordButton extends Button implements AudioManager.AudioStage
 
         // 这里没有判断储存卡是否存在，有空要判断
         String dir = Environment.getExternalStorageDirectory()
-                + "/nickming_recorder_audios";
+                + "/nexfi_recorder_audios";
         mAudioManager = AudioManager.getInstance(dir);
         mAudioManager.setOnAudioStageListener(this);
 

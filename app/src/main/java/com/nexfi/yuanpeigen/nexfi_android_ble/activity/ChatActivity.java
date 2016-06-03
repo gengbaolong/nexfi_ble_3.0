@@ -280,6 +280,7 @@ public class ChatActivity extends AppCompatActivity implements View.OnClickListe
 
     /**
      * 发送语音
+     *
      * @param seconds
      * @param filePath
      */
@@ -298,6 +299,7 @@ public class ChatActivity extends AppCompatActivity implements View.OnClickListe
         byte[] voice_send = FileTransferUtils.getBytesFromFile(file);
         String voiceData = Base64.encodeToString(voice_send, Base64.DEFAULT);
         voiceMessage.fileData = voiceData;
+        voiceMessage.filePath = filePath;
         singleChatMessage.voiceMessage = voiceMessage;
         bleDBDao.addP2PTextMsg(singleChatMessage);
         setAdapter(singleChatMessage);
