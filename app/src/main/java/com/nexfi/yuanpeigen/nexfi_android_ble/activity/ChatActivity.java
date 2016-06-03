@@ -256,27 +256,48 @@ public class ChatActivity extends AppCompatActivity implements View.OnClickListe
             @Override
             public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
                 if (mDataArrays.get(position).messageBodyType == MessageBodyType.eMessageBodyType_Voice) {
-                    // 播放动画
-                    if (viewanim != null) {//让第二个播放的时候第一个停止播放
-                        viewanim.setBackgroundResource(R.drawable.adj);
-                        viewanim = null;
+                    if (mDataArrays.get(position).userMessage.userId.equals(userSelfId)) {
+                        // 播放动画
+                        if (viewanim != null) {//让第二个播放的时候第一个停止播放
+                            viewanim.setBackgroundResource(R.drawable.adj_send);
+                            viewanim = null;
+                        }
+                        viewanim = view.findViewById(R.id.id_recorder_anim);
+                        viewanim.setBackgroundResource(R.drawable.play);
+                        AnimationDrawable drawable = (AnimationDrawable) viewanim
+                                .getBackground();
+                        drawable.start();
+
+                        // 播放音频
+                        MediaManager.playSound(mDataArrays.get(position).voiceMessage.filePath,
+                                new MediaPlayer.OnCompletionListener() {
+
+                                    @Override
+                                    public void onCompletion(MediaPlayer mp) {
+                                        viewanim.setBackgroundResource(R.drawable.adj_send);
+                                    }
+                                });
+                    } else {
+                        // 播放动画
+                        if (viewanim != null) {//让第二个播放的时候第一个停止播放
+                            viewanim.setBackgroundResource(R.drawable.adj_receive);
+                            viewanim = null;
+                        }
+                        viewanim = view.findViewById(R.id.id_recorder_anim);
+                        viewanim.setBackgroundResource(R.drawable.play_receive);
+                        AnimationDrawable drawable = (AnimationDrawable) viewanim
+                                .getBackground();
+                        drawable.start();
+
+                        // 播放音频
+                        MediaManager.playSound(mDataArrays.get(position).voiceMessage.filePath,
+                                new MediaPlayer.OnCompletionListener() {
+                                    @Override
+                                    public void onCompletion(MediaPlayer mp) {
+                                        viewanim.setBackgroundResource(R.drawable.adj_receive);
+                                    }
+                                });
                     }
-                    viewanim = view.findViewById(R.id.id_recorder_anim);
-                    viewanim.setBackgroundResource(R.drawable.play);
-                    AnimationDrawable drawable = (AnimationDrawable) viewanim
-                            .getBackground();
-                    drawable.start();
-
-                    // 播放音频
-                    MediaManager.playSound(mDataArrays.get(position).voiceMessage.filePath,
-                            new MediaPlayer.OnCompletionListener() {
-
-                                @Override
-                                public void onCompletion(MediaPlayer mp) {
-                                    viewanim.setBackgroundResource(R.drawable.adj);
-
-                                }
-                            });
                 }
             }
         });

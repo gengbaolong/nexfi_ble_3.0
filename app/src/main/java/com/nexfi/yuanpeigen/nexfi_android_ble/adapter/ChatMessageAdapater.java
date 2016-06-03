@@ -163,6 +163,7 @@ public class ChatMessageAdapater extends BaseAdapter {
                     }
                     viewHolder_voice.length = convertView.findViewById(R.id.recorder_length);
                     viewHolder_voice.seconds = (TextView) convertView.findViewById(R.id.recorder_time);
+                    viewHolder_voice.userHeadIcon = (ImageView) convertView.findViewById(R.id.item_icon);
                     convertView.setTag(viewHolder_voice);
                     break;
 
@@ -224,6 +225,7 @@ public class ChatMessageAdapater extends BaseAdapter {
                 ViewGroup.LayoutParams lParams = viewHolder_voice.length.getLayoutParams();
                 lParams.width = (int) (mMinItemWith + mMaxItemWith / 60f * Double.parseDouble(voiceMsg.durational));
                 viewHolder_voice.length.setLayoutParams(lParams);
+                viewHolder_voice.userHeadIcon.setImageResource(BleApplication.iconMap.get(entity.userMessage.userAvatar));
                 break;
 
             case MessageBodyType.eMessageBodyType_Image:
@@ -303,6 +305,7 @@ public class ChatMessageAdapater extends BaseAdapter {
     static class ViewHolder_voice {
         public TextView seconds;// 时间
         public View length;// 对话框长度
+        public ImageView userHeadIcon;
     }
 
 
