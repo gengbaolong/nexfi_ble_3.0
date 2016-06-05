@@ -229,7 +229,7 @@ public class ChatActivity extends AppCompatActivity implements View.OnClickListe
             }
         }
     }
-    
+
 
     private void setClicklistener() {
         layout_backPrivate.setOnClickListener(this);
